@@ -11,7 +11,7 @@ int Sensordata[7];
 const char *ssid = "yourssid";
 const char *password = "yourpasswd";
 
-NetworkServer server(80);
+WiFiServer server(80);
 
 void wifi_begin()
 {
@@ -73,17 +73,32 @@ void setup()
 }
 void loop()
 {
-  NetworkClinet client = server.accept();
-
+  static unsigned int lastMillis = 0;
+  const unsigned int interval = 333; // milliseconds
+  unsigned int now = millis();
+  if (now - lastMillis >= interval)
+  {
+    lastMillis = now;
+    readSensor();
+    print_data(Serial);
+  }
+  WiFiClient client = server.available();
   if (client)
   {
     Serial.println("New Client");
-    while (client.connected())
+    unsigned int start = millis();
+    while (client.connected() && (millis() - start < 1000))
     {
-      print_data(client);
+      if (client.available())
+      {
+        readSensor();
+        print_data(client);
+        start = millis(); // reset timeout counter on successful read
+        break;
+      }
+      delay(1); // yield to other tasks
     }
+    client.stop();
+    Serial.println("Client Disconnected");
   }
-  readSensor();
-  print_data(Serial);
-  delay(333);
 }
